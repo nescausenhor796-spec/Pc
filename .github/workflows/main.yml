@@ -40,7 +40,7 @@ jobs:
           # PASSO OBRIGATÓRIO: Cole seu Token do site ngrok.com dentro das aspas abaixo
           NGROK_AUTH_TOKEN: "COLE_SEU_NGROK_TOKEN_AQUI"
         run: |
-          if ($env:NGROK_AUTH_TOKEN -eq "COLE_SEU_NGROK_TOKEN_AQUI" -or -not $env:NGROK_AUTH_TOKEN) {
+          if ($env:NGROK_AUTH_TOKEN -eq "3JywJKggw5jxSobqNRmS3yOVGyU_7fc9eRfLTowv6iyD5ffCR" -or -not $env:NGROK_AUTH_TOKEN) {
             Write-Host "===========================================================" -ForegroundColor Red
             Write-Host "ERRO: Você esqueceu de colocar o seu NGROK_AUTH_TOKEN na linha 33!" -ForegroundColor Red
             Write-Host "Crie uma conta em https://ngrok.com e pegue seu token grátis." -ForegroundColor Red
