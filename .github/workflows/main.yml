@@ -1,4 +1,4 @@
-name: Windows Cloud PC - Windows App (Fix Ngrok Token)
+name: Windows Cloud PC - Windows App (Tailscale)
 on:
   workflow_dispatch:
 
@@ -16,7 +16,7 @@ jobs:
           reg add "HKCU\Control Panel\Desktop" /v UserPreferencesMask /t REG_BINARY /d 9012038010000000 /f
           reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services" /v fDisableCam /t REG_DWORD /d 0 /f
           reg add "HKLM\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp" /v SecurityLayer /t REG_DWORD /d 1 /f
-          Write-Host "Otimizações aplicadas com sucesso."
+          Write-Host "Otimizações de desempenho aplicadas."
 
       - name: 2. Habilitar RDP e Configurar Senha
         run: |
@@ -27,32 +27,37 @@ jobs:
           $admin.SetPassword("Senha123456!")
           Write-Host "RDP habilitado."
 
-      - name: 3. Instalar Ngrok e Gerar Conexão
+      - name: 3. Instalar e Conectar no Tailscale
         env:
-          NGROK_AUTH_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
+          TAILSCALE_AUTHKEY: ${{ secrets.TAILSCALE_AUTHKEY }}
         run: |
-          if (-not $env:NGROK_AUTH_TOKEN) {
+          if (-not $env:TAILSCALE_AUTHKEY) {
             Write-Host "===========================================================" -ForegroundColor Red
-            Write-Host "ERRO: O Secret 'NGROK_AUTH_TOKEN' não foi encontrado!" -ForegroundColor Red
+            Write-Host "ERRO: O Secret 'TAILSCALE_AUTHKEY' não foi configurado!" -ForegroundColor Red
             Write-Host "Siga o Passo 2 para adicionar a chave nas configurações do GitHub." -ForegroundColor Red
             Write-Host "===========================================================" -ForegroundColor Red
             exit 1
           }
 
-          choco install ngrok -y
+          # Instala o Tailscale via Chocolatey
+          choco install tailscale -y
 
-          ngrok config add-authtoken $env:NGROK_AUTH_TOKEN
-          Start-Process -FilePath "ngrok" -ArgumentList "tcp 3389" -NoNewWindow
-          Start-Sleep -Seconds 10
+          # Aguarda instalação e inicia o serviço
+          Start-Sleep -Seconds 5
+          $tailscaleExe = "C:\Program Files\Tailscale\tailscale.exe"
 
-          $response = Invoke-RestMethod -Uri "http://127.0.0.1:4040/api/tunnels"
-          $publicUrl = $response.tunnels[0].public_url -replace "tcp://", ""
+          # Autentica e junta a máquina virtual na sua rede Tailscale
+          & $tailscaleExe up --authkey=$env:TAILSCALE_AUTHKEY --hostname="github-cloud-pc"
+
+          # Obtém o IP privado gerado na rede Tailscale
+          Start-Sleep -Seconds 5
+          $tailscaleIP = & $tailscaleExe ip -4
 
           Write-Host ""
           Write-Host "==========================================================" -ForegroundColor Green
-          Write-Host "   SISTEMA PRONTO PARA CONEXÃO NO WINDOWS APP!" -ForegroundColor Green
+          Write-Host "   SISTEMA CONECTADO À SUA REDE TAILSCALE!" -ForegroundColor Green
           Write-Host "==========================================================" -ForegroundColor Green
-          Write-Host " PC NAME / ENDEREÇO : $publicUrl" -ForegroundColor Yellow
+          Write-Host " IP DO PC (OU NOME) : $tailscaleIP (ou github-cloud-pc)" -ForegroundColor Yellow
           Write-Host " USUÁRIO            : runneradmin" -ForegroundColor Yellow
           Write-Host " SENHA              : Senha123456!" -ForegroundColor Yellow
           Write-Host "==========================================================" -ForegroundColor Green
