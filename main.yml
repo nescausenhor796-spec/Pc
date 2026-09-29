@@ -1,0 +1,52 @@
+name: Windows Cloud PC Otimizado
+on:
+  workflow_dispatch:
+jobs:
+  build:
+    name: Iniciando Sistema
+    runs-on: windows-latest
+    timeout-minutes: 360 
+    steps:
+      - name: Otimizar Performance do Windows
+        run: |
+          # Ativa o plano de energia de Alto Desempenho
+          powercfg -setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c
+          
+          # Desativa efeitos visuais do Windows (melhora drasticamente a fluidez remota)
+          reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects" /v VisualFXSetting /t REG_DWORD /d 2 /f
+          Write-Host "Modo de alto desempenho ativado e efeitos visuais desativados."
+
+      - name: Baixar e Instalar Essenciais
+        run: |
+          Invoke-WebRequest -Uri "https://www.dropbox.com/scl/fi/7eiczvgil84czu55dxep3/Downloads.bat?rlkey=wzdc1wxjsph2b7r0atplmdz3p&dl=1" -OutFile "Downloads.bat" -UseBasicParsing
+          cmd /c Downloads.bat
+
+      - name: Iniciar e Monitorar AnyDesk
+        run: |
+          if (Test-Path "start.bat") {
+            cmd /c start.bat
+            Start-Sleep -Seconds 10
+          } else {
+            Write-Host "ERRO: Arquivo start.bat não encontrado."
+            exit 1
+          }
+          
+          # Monitoramento integrado ao invés de loop infinito avulso
+          $tempoMaximo = 350 * 60 # 350 minutos
+          $contador = 0
+          while ($contador -lt $tempoMaximo) {
+            $anydesk = Get-Process -Name "AnyDesk" -ErrorAction SilentlyContinue
+            if (-not $anydesk -or $anydesk.HasExited) {
+              Write-Host "Reiniciando AnyDesk..."
+              cmd /c start.bat
+            }
+            Start-Sleep -Seconds 60
+            $contador += 60
+          }
+
+      - name: Limpeza Segura
+        if: always()
+        run: |
+          Remove-Item Downloads.bat -Force -ErrorAction SilentlyContinue
+          Write-Host "Limpeza finalizada."
+          
