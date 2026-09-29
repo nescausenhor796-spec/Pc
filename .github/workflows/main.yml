@@ -1,4 +1,4 @@
-name: Windows Cloud PC - Windows App (Fix Ngrok)
+name: Windows Cloud PC - Windows App (Fix Ngrok Token)
 on:
   workflow_dispatch:
 
@@ -29,26 +29,22 @@ jobs:
 
       - name: 3. Instalar Ngrok e Gerar Conexão
         env:
-          # ATENÇÃO: COLE SUA CHAVE DO SITE NGROK.COM DENTRO DAS ASPAS ABAIXO
-          NGROK_AUTH_TOKEN: "COLE_SEU_NGROK_TOKEN_AQUI"
+          NGROK_AUTH_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
         run: |
-          if ($env:NGROK_AUTH_TOKEN -eq "3JywJKggw5jxSobqNRmS3yOVGyU_7fc9eRfLTowv6iyD5ffCR" -or -not $env:NGROK_AUTH_TOKEN) {
+          if (-not $env:NGROK_AUTH_TOKEN) {
             Write-Host "===========================================================" -ForegroundColor Red
-            Write-Host "ERRO: Você precisa colocar seu token do Ngrok na linha 31!" -ForegroundColor Red
-            Write-Host "Crie uma conta gratuita em https://ngrok.com e pegue seu Authtoken." -ForegroundColor Red
+            Write-Host "ERRO: O Secret 'NGROK_AUTH_TOKEN' não foi encontrado!" -ForegroundColor Red
+            Write-Host "Siga o Passo 2 para adicionar a chave nas configurações do GitHub." -ForegroundColor Red
             Write-Host "===========================================================" -ForegroundColor Red
             exit 1
           }
 
-          # Instala o Ngrok de forma oficial via gerenciador de pacotes
           choco install ngrok -y
 
-          # Configura e inicia o túnel RDP
           ngrok config add-authtoken $env:NGROK_AUTH_TOKEN
           Start-Process -FilePath "ngrok" -ArgumentList "tcp 3389" -NoNewWindow
           Start-Sleep -Seconds 10
 
-          # Pega o endereço gerado para o Windows App
           $response = Invoke-RestMethod -Uri "http://127.0.0.1:4040/api/tunnels"
           $publicUrl = $response.tunnels[0].public_url -replace "tcp://", ""
 
