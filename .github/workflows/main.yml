@@ -1,4 +1,4 @@
-name: Windows Cloud PC - Windows App (RDP Ultra Otimizado)
+name: Windows Cloud PC - Windows App (Fix Ngrok)
 on:
   workflow_dispatch:
 
@@ -11,53 +11,44 @@ jobs:
     steps:
       - name: 1. Otimizar Sistema e Desempenho
         run: |
-          # Ativa o Plano de Energia "Alto Desempenho"
           powercfg -setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c
-          
-          # Desativa animações, sombras e efeitos visuais para máxima fluidez remota
           reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects" /v VisualFXSetting /t REG_DWORD /d 2 /f
           reg add "HKCU\Control Panel\Desktop" /v UserPreferencesMask /t REG_BINARY /d 9012038010000000 /f
-
-          # Otimizações para o protocolo RDP (Área de Trabalho Remota)
           reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services" /v fDisableCam /t REG_DWORD /d 0 /f
           reg add "HKLM\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp" /v SecurityLayer /t REG_DWORD /d 1 /f
-
-          Write-Host "Otimizações de desempenho e visual aplicadas!"
+          Write-Host "Otimizações aplicadas com sucesso."
 
       - name: 2. Habilitar RDP e Configurar Senha
         run: |
-          # Ativa conexões RDP no Windows e libera no Firewall
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
           Enable-NetFirewallRule -DisplayGroup "Remote Desktop" -ErrorAction SilentlyContinue
 
-          # Configura a senha da conta principal (runneradmin)
           $admin = [ADSI]"WinNT://./runneradmin,user"
           $admin.SetPassword("Senha123456!")
-          Write-Host "RDP ativado e senha configurada com sucesso."
+          Write-Host "RDP habilitado."
 
-      - name: 3. Conectar Ngrok e Gerar Dados do Windows App
+      - name: 3. Instalar Ngrok e Gerar Conexão
         env:
-          # PASSO OBRIGATÓRIO: Cole seu Token do site ngrok.com dentro das aspas abaixo
+          # ATENÇÃO: COLE SUA CHAVE DO SITE NGROK.COM DENTRO DAS ASPAS ABAIXO
           NGROK_AUTH_TOKEN: "COLE_SEU_NGROK_TOKEN_AQUI"
         run: |
           if ($env:NGROK_AUTH_TOKEN -eq "3JywJKggw5jxSobqNRmS3yOVGyU_7fc9eRfLTowv6iyD5ffCR" -or -not $env:NGROK_AUTH_TOKEN) {
             Write-Host "===========================================================" -ForegroundColor Red
-            Write-Host "ERRO: Você esqueceu de colocar o seu NGROK_AUTH_TOKEN na linha 33!" -ForegroundColor Red
-            Write-Host "Crie uma conta em https://ngrok.com e pegue seu token grátis." -ForegroundColor Red
+            Write-Host "ERRO: Você precisa colocar seu token do Ngrok na linha 31!" -ForegroundColor Red
+            Write-Host "Crie uma conta gratuita em https://ngrok.com e pegue seu Authtoken." -ForegroundColor Red
             Write-Host "===========================================================" -ForegroundColor Red
             exit 1
           }
 
-          # Download do Ngrok
-          Invoke-WebRequest -Uri "https://bin.equinox.io/c/b32812/ngrok-v3-stable-windows-amd64.zip" -OutFile "ngrok.zip"
-          Expand-Archive ngrok.zip -DestinationPath . -Force
+          # Instala o Ngrok de forma oficial via gerenciador de pacotes
+          choco install ngrok -y
 
-          # Configura token e inicia o túnel RDP
-          .\ngrok.exe config add-authtoken $env:NGROK_AUTH_TOKEN
-          Start-Process -FilePath ".\ngrok.exe" -ArgumentList "tcp 3389" -NoNewWindow
-          Start-Sleep -Seconds 5
+          # Configura e inicia o túnel RDP
+          ngrok config add-authtoken $env:NGROK_AUTH_TOKEN
+          Start-Process -FilePath "ngrok" -ArgumentList "tcp 3389" -NoNewWindow
+          Start-Sleep -Seconds 10
 
-          # Pega o endereço público gerado
+          # Pega o endereço gerado para o Windows App
           $response = Invoke-RestMethod -Uri "http://127.0.0.1:4040/api/tunnels"
           $publicUrl = $response.tunnels[0].public_url -replace "tcp://", ""
 
@@ -73,7 +64,7 @@ jobs:
 
       - name: 4. Manter PC Virtual Ligado
         run: |
-          $tempoMaximo = 350 * 60 # Mantém ativo por 350 minutos (limite seguro do GitHub)
+          $tempoMaximo = 350 * 60
           $contador = 0
           while ($contador -lt $tempoMaximo) {
             Start-Sleep -Seconds 60
