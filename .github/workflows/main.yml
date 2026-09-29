@@ -1,6 +1,7 @@
 name: Windows Cloud PC Otimizado
 on:
   workflow_dispatch:
+
 jobs:
   build:
     name: Iniciando Sistema
@@ -9,44 +10,49 @@ jobs:
     steps:
       - name: Otimizar Performance do Windows
         run: |
-          # Ativa o plano de energia de Alto Desempenho
           powercfg -setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c
-          
-          # Desativa efeitos visuais do Windows (melhora drasticamente a fluidez remota)
           reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects" /v VisualFXSetting /t REG_DWORD /d 2 /f
-          Write-Host "Modo de alto desempenho ativado e efeitos visuais desativados."
+          Write-Host "Desempenho otimizado com sucesso."
 
-      - name: Baixar e Instalar Essenciais
+      - name: Instalar e Configurar AnyDesk
         run: |
-          Invoke-WebRequest -Uri "https://www.dropbox.com/scl/fi/7eiczvgil84czu55dxep3/Downloads.bat?rlkey=wzdc1wxjsph2b7r0atplmdz3p&dl=1" -OutFile "Downloads.bat" -UseBasicParsing
-          cmd /c Downloads.bat
+          # 1. Instala o AnyDesk
+          choco install anydesk -y
 
-      - name: Iniciar e Monitorar AnyDesk
-        run: |
-          if (Test-Path "start.bat") {
-            cmd /c start.bat
-            Start-Sleep -Seconds 10
-          } else {
-            Write-Host "ERRO: Arquivo start.bat não encontrado."
-            exit 1
-          }
+          # 2. Caminho do AnyDesk
+          $anydeskPath = "C:\Program Files (x86)\AnyDesk\AnyDesk.exe"
+
+          # 3. Define a Senha de Acesso Remoto (Definida para: Senha123456)
+          $senha = "Senha123456"
+          cmd /c "echo $senha | `"$anydeskPath`" --set-password"
+
+          # 4. Inicia o serviço do AnyDesk
+          Start-Service -Name "AnyDesk" -ErrorAction SilentlyContinue
+
+          # 5. Obtém e exibe o ID no Log do GitHub
+          Start-Sleep -Seconds 5
+          $anydeskID = cmd /c "`"$anydeskPath`" --get-id"
           
-          # Monitoramento integrado ao invés de loop infinito avulso
-          $tempoMaximo = 350 * 60 # 350 minutos
+          Write-Host ""
+          Write-Host "==============================================" -ForegroundColor Green
+          Write-Host " ID DO ANYDESK : $anydeskID" -ForegroundColor Yellow
+          Write-Host " SENHA        : $senha" -ForegroundColor Yellow
+          Write-Host "==============================================" -ForegroundColor Green
+          Write-Host ""
+
+      - name: Manter Sistema Ativo e Monitorar
+        run: |
+          $anydeskPath = "C:\Program Files (x86)\AnyDesk\AnyDesk.exe"
+          $tempoMaximo = 350 * 60 # 350 minutos (limite de 6 horas)
           $contador = 0
-          while ($contador -lt $tempoMaximo) {
-            $anydesk = Get-Process -Name "AnyDesk" -ErrorAction SilentlyContinue
-            if (-not $anydesk -or $anydesk.HasExited) {
-              Write-Host "Reiniciando AnyDesk..."
-              cmd /c start.bat
+
+          while ($contador -lt $tempoMaximo) {$processo = Get-Process -Name "AnyDesk" -ErrorAction SilentlyContinue
+            if (-not $processo) {
+              Write-Host "Serviço do AnyDesk reiniciando..."
+              Start-Service -Name "AnyDesk" -ErrorAction SilentlyContinue
+              Start-Process -FilePath $anydeskPath
             }
             Start-Sleep -Seconds 60
             $contador += 60
           }
-
-      - name: Limpeza Segura
-        if: always()
-        run: |
-          Remove-Item Downloads.bat -Force -ErrorAction SilentlyContinue
-          Write-Host "Limpeza finalizada."
           
